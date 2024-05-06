@@ -120,7 +120,7 @@ public class JpaRecipeRepository implements RecipeRepository {
         Boolean oredrBoolean = sortDto.getOrder();
 
 
-        String query = "select recipe from Recipe recipe LEFT JOIN Review r ON recipe.recipeId = r.recipe.recipeId LEFT JOIN HashTag h ON h.recipe.recipeId = recipe.recipeId where h.tag like '%" + keyword + "%' GROUP BY recipe.recipeId ";
+        String query = "select recipe from Recipe recipe LEFT JOIN Review r ON recipe.recipeId = r.recipe.recipeId LEFT JOIN HashTag h ON h.recipe.recipeId = recipe.recipeId where h.tag like " + keyword + "%' GROUP BY recipe.recipeId ";
         String order = oredrBoolean ? "ASC" : "DESC";
         switch (sortLogic) {
             case 1:
