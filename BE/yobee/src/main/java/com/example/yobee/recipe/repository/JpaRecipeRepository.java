@@ -7,6 +7,7 @@ import com.example.yobee.recipe.dto.SortDto;
 import com.example.yobee.user.domain.User;
 
 import javax.persistence.EntityManager;
+import javax.persistence.Query;
 import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +32,7 @@ public class JpaRecipeRepository implements RecipeRepository {
         String order = oredrBoolean ? "ASC" : "DESC";
         switch (sortLogic) {
             case 1:
-                query += "ORDER BY COUNT(CASE WHEN reviw.content IS NOT NULL THEN 1 END)" + order;
+                query += "ORDER BY COUNT(CASE WHEN review.content IS NOT NULL THEN 1 END)" + order;
                 break;
             case 2:
                 query += "order by recipe.difficulty " + order;
@@ -193,6 +194,11 @@ public class JpaRecipeRepository implements RecipeRepository {
                 .getResultList();
     }
 
-
+    @Override
+    public List<Recipe> findRecipesByIds(List<Long> ids) {
+        Query query = em.createQuery("SELECT r FROM Recipe r WHERE r.id IN :ids", Recipe.class);
+        query.setParameter("ids", ids);
+        return query.getResultList();
+    }
 
 }

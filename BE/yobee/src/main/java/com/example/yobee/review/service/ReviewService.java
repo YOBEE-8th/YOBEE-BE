@@ -12,7 +12,7 @@ import com.example.yobee.review.domain.ReviewLike;
 import com.example.yobee.review.dto.*;
 import com.example.yobee.review.repository.ReviewLikeRepository;
 import com.example.yobee.review.repository.ReviewRepository;
-import com.example.yobee.s3.service.S3Service;
+//import com.example.yobee.s3.service.S3Service;
 import com.example.yobee.user.domain.User;
 import com.example.yobee.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +34,7 @@ public class ReviewService {
     private  final ReviewRepository reviewRepository;
     private  final UserRepository userRepository;
     private final ReviewLikeRepository reviewLikeRepository;
-    private final S3Service s3Service;
+    //private final S3Service s3Service;
 
     public List<RecipeReviewDto> recipeReview(Long id, HeaderDto headerDto) {
         List<RecipeReviewDto> recipeReviewDtos = new ArrayList<>();
@@ -198,7 +198,7 @@ public class ReviewService {
         }
         Review review = optionalReview.get();
         String imgUrl = review.getReviewImage().split("/")[review.getReviewImage().split("/").length - 1];
-        s3Service.delete(imgUrl);
+        //s3Service.delete(imgUrl);
         reviewRepository.delete(review);
     }
 
@@ -221,7 +221,7 @@ public class ReviewService {
         System.out.println(name.contains("."));
         int leng = name.split("\\.").length;
         String fileName = "recipe" + String.valueOf(recipeId) + "_"+ String.valueOf(System.currentTimeMillis()) + "." + name.split("\\.")[leng-1];
-        imgPath = s3Service.upload(reviewImage, fileName);
+        //imgPath = s3Service.upload(reviewImage, fileName);
 
         ReviewDto reviewDto = new ReviewDto();
         reviewDto.setContent(content);
@@ -244,7 +244,7 @@ public class ReviewService {
 
         for(Review review : reviewList){
             String imgUrl = review.getReviewImage().split("/")[review.getReviewImage().split("/").length - 1];
-            s3Service.delete(imgUrl);
+            //s3Service.delete(imgUrl);
         }
     }
 }

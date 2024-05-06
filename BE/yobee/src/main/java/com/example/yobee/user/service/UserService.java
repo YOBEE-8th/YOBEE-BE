@@ -15,7 +15,7 @@ import com.example.yobee.review.dto.ReviewIdDto;
 import com.example.yobee.review.repository.ReviewLikeRepository;
 import com.example.yobee.review.repository.ReviewRepository;
 import com.example.yobee.review.service.ReviewService;
-import com.example.yobee.s3.service.S3Service;
+//import com.example.yobee.s3.service.S3Service;
 import com.example.yobee.user.domain.User;
 import com.example.yobee.user.dto.*;
 import com.example.yobee.user.repository.UserRepository;
@@ -45,7 +45,7 @@ public class  UserService {
 
     private final RecipeRepository recipeRepository;
 
-    private final S3Service s3Service;
+    //private final S3Service s3Service;
 
     private final RecipeLikeRepository recipeLikeRepository;
 
@@ -86,7 +86,7 @@ public class  UserService {
         if (!(profileImage==null)) {
             String fileName = "profile_" + String.valueOf(System.currentTimeMillis()) + "." + profileImage.getOriginalFilename().split("\\.")[profileImage.getOriginalFilename().split("\\.").length-1];
             try {
-                imgPath = s3Service.upload(profileImage, fileName);
+                //imgPath = s3Service.upload(profileImage, fileName);
             }
             catch (NullPointerException e) {
                 System.out.println(e);
@@ -356,15 +356,12 @@ public class  UserService {
         String url = user.getProfileImage();
 
         if (!(url.equals(default_img)) && userRepository.findByProfileImage(url).size() == 1) {
-            s3Service.delete(user.getProfileImage().split("/")[user.getProfileImage().split("/").length - 1]);
+            //s3Service.delete(user.getProfileImage().split("/")[user.getProfileImage().split("/").length - 1]);
         }
 
         List<RecipeLike> recipeLikeList = recipeLikeRepository.findByUser(user);
         for (RecipeLike recipeLike : recipeLikeList){
-            Recipe recipe = recipeLike.getRecipe();
-            int cnt = recipe.getRecipeLikeCnt();
-            recipe.setRecipeLikeCnt(cnt - 1);
-            recipeRepository.save(recipe);
+            recipeLikeRepository.delete(recipeLike);
         }
 
         List<ReviewLike> reviewLikeList = reviewLikeRepository.findByUser(user);
@@ -397,11 +394,11 @@ public class  UserService {
             try {
                 String url = user.getProfileImage();
                 if (!(url.equals(default_img)) && userRepository.findByProfileImage(url).size() == 1) {
-                    s3Service.delete(user.getProfileImage().split("/")[user.getProfileImage().split("/").length - 1]);
+                    //s3Service.delete(user.getProfileImage().split("/")[user.getProfileImage().split("/").length - 1]);
                 }
                 String fileName = "profile_" + String.valueOf(System.currentTimeMillis()) + "." + profileImage.getOriginalFilename().split("\\.")[profileImage.getOriginalFilename().split("\\.").length-1];
-                String imgPath = s3Service.upload(profileImage, fileName);
-                user.setProfileImage(imgPath);
+                //String imgPath = s3Service.upload(profileImage, fileName);
+                //user.setProfileImage(imgPath);
             }
             catch (NullPointerException e) {
                 System.out.println(e);

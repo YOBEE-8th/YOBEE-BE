@@ -35,4 +35,6 @@ public interface RecipeRepository {
     List<Recipe> pagenationSortRecipe(PageSortDto pageSortDto);
 
     List<Recipe> pagenationSearchRecipe(PageSearchDto pageSearchDto);
+
+    List<Recipe> findRecipesByIds(List<Long> ids);
 }

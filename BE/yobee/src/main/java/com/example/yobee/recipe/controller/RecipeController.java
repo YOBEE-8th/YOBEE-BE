@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -172,8 +174,8 @@ public class RecipeController {
     }
 
     @PostMapping("/recipe/crawler/foodsafetykorea")
-    public void getRecipeDate(@RequestBody WebclientDto webclientDto, Authentication authentication) throws IOException {
-        recipeService.getRecipeData(webclientDto);
+    public void getRecipeDate( Authentication authentication) throws IOException {
+        recipeService.getRecipeData();
     }
 
     @PostMapping("/recipe/getData2")

@@ -48,7 +48,6 @@ public class DataService {
         recipe.setAi(false);
         recipe.setTime(time);
         recipe.setCategory(category);
-        recipe.setRecipeLikeCnt(0);
         recipe.setResultImage(mainImg);
         recipe.setRecipe10000Id(Integer.parseInt(id));
 

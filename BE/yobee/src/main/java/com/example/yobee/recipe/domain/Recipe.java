@@ -32,6 +32,7 @@ public class Recipe {
     private int recipeLikeCnt;
 
     private int recipe10000Id;
+    private long view;
     @JsonBackReference
     @OneToMany(mappedBy = "recipe", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<Review> reviewList;

@@ -8,19 +8,25 @@ import com.example.yobee.review.repository.ReviewRepository;
 import com.example.yobee.user.domain.User;
 import com.example.yobee.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.*;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import javax.persistence.EntityNotFoundException;
 import javax.transaction.Transactional;
 import java.awt.image.BufferedImage;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
@@ -28,6 +34,8 @@ import javax.imageio.ImageIO;
 import static java.lang.Math.min;
 
 @Service
+@Slf4j
+@EnableScheduling
 @RequiredArgsConstructor
 public class RecipeService {
 
@@ -38,6 +46,7 @@ public class RecipeService {
     private final IngredientRepository ingredientRepository;
     private final HashTagRepository hashTagRepository;
     private final ReviewRepository reviewRepository;
+    private final RedissonClient redissonClient;
     @Value("${foodsafetykorea.apikey}")
     private String foodsafetykoreaApiKey;
 
@@ -64,8 +73,18 @@ public class RecipeService {
 
         User user = userRepository.findByEmail(headerDto.getUserName());
         boolean isLike = recipeLikeRepository.existsByUserAndRecipe(user,recipe);
-        Long reviwCnt = reviewRepository.countByrecipeAndContentNotNull(recipe);
-        return new RecipeDto(recipe, isLike, reviwCnt);
+        Long reviewCnt = reviewRepository.countByrecipeAndContentNotNull(recipe);
+        // 조회수 변화
+        RBitSet rBitSet = redissonClient.getBitSet("recipe" + id);
+        if(!rBitSet.get(user.getUserId())) {
+            rBitSet.set(user.getUserId(), true);
+            RDeque<ViewDto> rDeque = redissonClient.getDeque("viewDeque");
+            rDeque.add(new ViewDto(LocalDateTime.now(), id));
+            RScoredSortedSet rScoredSortedSet = redissonClient.getScoredSortedSet("recipeRank");
+            rScoredSortedSet.addScore(id, 1);
+        }
+        return new RecipeDto(recipe, isLike, reviewCnt);
+
     }
 
     public IngredientDto ingredientByRecipeId(Long id){
@@ -111,7 +130,9 @@ public class RecipeService {
     }
 
     public List<RecommendRecipeDto> recommend() {
-        List<Recipe> recipeList = recipeRepository.findAll();
+        RScoredSortedSet rScoredSortedSet = redissonClient.getScoredSortedSet("recipeRank");
+        List<Long> idList = new ArrayList<>(rScoredSortedSet.valueRange(0, 15));
+        List<Recipe> recipeList = recipeRepository.findRecipesByIds(idList);
         Collections.shuffle(recipeList);
         List<RecommendRecipeDto> recommendRecipeDtoList = new ArrayList<>();
         for(int i = 0; i < min(16,recipeRepository.findAll().size()); i ++) {
@@ -131,7 +152,7 @@ public class RecipeService {
     }
 
     @Transactional
-    public void getRecipeData(WebclientDto webclientDto) throws IOException{
+    public void getRecipeData() throws IOException{
 
 //        String CHNG_DT = "20220101";
 //        String apiUrl = "https://openapi.foodsafetykorea.go.kr/api/" + foodsafetykoreaApiKey + "/COOKRCP01/json/1/10/CHNG_DT=" + CHNG_DT + "/";
@@ -176,7 +197,6 @@ public class RecipeService {
             else recipe.setCategory(row.get("RCP_PAT2"));
             recipe.setDifficulty(2);
             recipe.setAi(false);
-            recipe.setRecipeLikeCnt(0);
             recipe.setRecipeTitle(row.get("RCP_NM"));
             recipe.setResultImage(row.get("ATT_FILE_NO_MAIN"));
             recipe.setServings("1");
@@ -318,7 +338,7 @@ public class RecipeService {
             hashTagRepository.save(hashTagCategory);
         }
 
-        System.out.println(Integer.toString(cnt) + "개");
+        System.out.println(cnt + "개");
 
 
 
@@ -567,7 +587,7 @@ public class RecipeService {
 
     public List<RecipesDto> getLikeRecipe(String email) {
         Optional<User> optionalUser = Optional.ofNullable(userRepository.findByEmail(email));
-        if (!optionalUser.isPresent()){
+        if (optionalUser.isEmpty()){
             throw new EntityNotFoundException("User not present in the database");
         }
         User user = optionalUser.get();
@@ -586,7 +606,7 @@ public class RecipeService {
         List<Recipe> recipeList = recipeRepository.findAll();
 
         for (Recipe recipe : recipeList) {
-            Long recipeId = recipe.getRecipeId();
+
             String recipeTitle = recipe.getRecipeTitle();
             String recipeCategory = recipe.getCategory();
 
@@ -625,4 +645,49 @@ public class RecipeService {
         return responseRecipesDtoList;
     }
 
+    public RecipeLikeRedisDto getLikeInfo(final String recipeId, final User user) {
+        //key 로 Lock 객체 가져옴
+        RBitSet rBitSet = redissonClient.getBitSet("recipeLike" + recipeId);
+        boolean isLike;
+        int cnt;
+        RLock lock = redissonClient.getLock("recipeLike" + recipeId);
+        try {
+            boolean isLocked = lock.tryLock(2, 3, TimeUnit.SECONDS);
+            if (!isLocked) {
+                //락 획득 실패 시 예외 처리
+                throw new InterruptedException();
+            }
+            cnt = (int)rBitSet.cardinality();
+            isLike = rBitSet.get(user.getUserId());
+
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }finally {
+            lock.unlock();
+        }
+        return new RecipeLikeRedisDto(isLike, cnt);
+    }
+
+    @Scheduled(cron = "0 */5 * * * *")
+    public void leftpop(){
+        RDeque<ViewDto> rDeque = redissonClient.getDeque("viewDeque");
+        RScoredSortedSet rScoredSortedSet = redissonClient.getScoredSortedSet("recipeRank");
+        HashMap<Long, Integer> change = new HashMap<>();
+        //변화 감지
+        while (rDeque.size() >0 && rDeque.peek().getLocalDateTime().isBefore(LocalDateTime.now().minusHours(3))){
+            ViewDto viewDto = rDeque.poll();
+            long id = viewDto.getId();
+            RBitSet rBitSet = redissonClient.getBitSet("recipe" + id);
+            rBitSet.set(id, false);
+            if (change.containsKey(id)){
+                change.put(id, change.get(id) + 1);
+            }else {
+                change.put(id, 1);
+            }
+        }
+        //redis에 추가
+        for(long id: change.keySet()){
+            rScoredSortedSet.addScore(id, - change.get(id));
+        }
+    }
 }
